@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Days Since Monty Balboa</title>
+<style>
+  :root {
+    color-scheme: light;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+  }
+  * { box-sizing: border-box; }
+
+  .monty-widget {
+    font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif;
+    width: 100%;
+    max-width: 320px;
+    background: aqua;
+    border: 2px solid black;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+    color: black;
+  }
+
+  .monty-widget__inner {
+    background: linen;
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 10px;
+  }
+
+  .monty-widget__title {
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.2px;
+    margin: 0 0 6px;
+  }
+
+  .monty-widget__count {
+    font-size: 44px;
+    font-weight: bold;
+    line-height: 1;
+    margin: 4px 0;
+  }
+
+  .monty-widget__label {
+    font-size: 11px;
+    margin: 0 0 8px;
+  }
+
+  .monty-widget__image {
+    width: 100%;
+    max-width: 220px;
+    border: 2px solid black;
+    border-radius: 4px;
+    margin: 6px 0;
+    display: none; /* shown once an image loads successfully */
+  }
+
+  .monty-widget__caption {
+    font-size: 10px;
+    font-style: italic;
+    margin: 4px 0 8px;
+    word-wrap: break-word;
+  }
+
+  .monty-widget__error {
+    font-size: 11px;
+    padding: 8px 0;
+  }
+
+  .monty-widget__link {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 10px;
+    color: #003399;
+    text-decoration: underline;
+  }
+
+  .monty-widget__link:visited {
+    color: #551a8b;
+  }
+</style>
+</head>
+<body>
+
+<div class="monty-widget" id="monty-widget">
+  <div class="monty-widget__inner">
+    <p class="monty-widget__title">Days since Montague St Bridge was last hit</p>
+    <div id="monty-widget__content">
+      <div class="monty-widget__count">–</div>
+      <p class="monty-widget__label">loading…</p>
+    </div>
+  </div>
+  <a class="monty-widget__link" href="/" target="_blank" rel="noopener">Full site →</a>
+</div>
+
+<script>
+(function () {
+  // Both fetches are relative, so they hit whatever domain this widget
+  // file is actually hosted on. Host widget.html on your own site's
+  // domain and embed IT via <iframe> elsewhere — that keeps these calls
+  // same-origin with no CORS setup needed.
+  var contentEl = document.getElementById('monty-widget__content');
+
+  function formatDate(d) {
+    return d.toLocaleDateString(undefined, {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
+  }
+
+  function daysSince(dateStr) {
+    var last = new Date(dateStr);
+    var now = new Date();
+    // Normalize both to midnight local time so partial days don't confuse the count.
+    last.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+    return Math.round((now - last) / 86400000);
+  }
+
+  function render(days, lastDateStr, imageUrl, caption) {
+    var html = ''
+      + '<div class="monty-widget__count">' + days + '</div>'
+      + '<p class="monty-widget__label">since ' + formatDate(new Date(lastDateStr)) + '</p>';
+
+    contentEl.innerHTML = html;
+
+    if (imageUrl) {
+      var img = document.createElement('img');
+      img.className = 'monty-widget__image';
+      img.alt = caption || 'Latest incident';
+      img.onload = function () { img.style.display = 'block'; };
+      img.onerror = function () { img.remove(); };
+      img.src = imageUrl;
+      contentEl.appendChild(img);
+    }
+
+    if (caption) {
+      var cap = document.createElement('p');
+      cap.className = 'monty-widget__caption';
+      cap.textContent = caption;
+      contentEl.appendChild(cap);
+    }
+  }
+
+  function showError() {
+    contentEl.innerHTML = '<p class="monty-widget__error">couldn\'t load the count right now</p>';
+  }
+
+  // IMPORTANT: this widget is hosted on a DIFFERENT domain from the API
+  // (acetaylor.dev vs. howmanydayssincemontaguestreetbridgehasbeenhit.com),
+  // so the request below is cross-origin. It will only work in the browser
+  // if that API sends an Access-Control-Allow-Origin header permitting
+  // acetaylor.dev. If it doesn't, you'll see a CORS error in devtools and
+  // need the proxy approach described in the accompanying notes.
+  var API_ORIGIN = 'https://howmanydayssincemontaguestreetbridgehasbeenhit.com';
+
+  fetch(API_ORIGIN + '/api/chumps/')
+    .then(function (res) {
+      if (!res.ok) throw new Error('bad response');
+      return res.json();
+    })
+    .then(function (data) {
+      // The real API returns a plain array, most-recent-first, with
+      // shape: { name, date, media: [{ url }], streak, ... }
+      var latest = Array.isArray(data) ? data[0] : data;
+      if (!latest || !latest.date) throw new Error('unexpected shape');
+
+      var days = daysSince(latest.date);
+      var imageUrl = (latest.media && latest.media[0] && latest.media[0].url)
+        ? API_ORIGIN + latest.media[0].url  // media URLs are root-relative to the real site
+        : null;
+
+      render(days, latest.date, imageUrl, latest.name || '');
+    })
+    .catch(showError);
+})();
+</script>
+
+</body>
+</html>
